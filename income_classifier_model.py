@@ -3,7 +3,7 @@ import numpy as np
 
 #Task: Given attributes about the person, predict income is >50K and <50K
 
-df = pd.read_csv('adult.csv',na_values = '#NAME?')
+df = pd.read_csv('adult.csv')
 print(df.head(5))
 
 print(df['income'].value_counts())
@@ -68,7 +68,6 @@ X = pd.DataFrame(data=imp.transform(X) , columns=X.columns)
 # Now check again to see if you still have missing data
 print(X.isnull().sum().sort_values(ascending=False).head())
 
-#https://www.youtube.com/watch?v=V0u6bxQOUJ8&list=PLV-CFjYwsYIzuxmu_5C8H8IVY9gFbyEGs      12:53
 
 # Impute missing values using Imputer in sklearn.preprocessing
 from sklearn.preprocessing import Imputer
@@ -90,10 +89,6 @@ X = pd.DataFrame(data=imp.transform(X) , columns=X.columns)
 # Now check again to see if you still have missing data
 print(X.isnull().sum().sort_values(ascending=False).head())
 
-'''  concentrate
-from IPython.display import Image
-Image(filename='outliers.jpg')
-'''
 def find_outliers_tukey(x):
     q1 = np.percentile(x, 25)
     q3 = np.percentile(x, 75)
