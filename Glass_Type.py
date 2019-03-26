@@ -1,94 +1,149 @@
-# Load libraries
-import pandas
+import pandas as pd
 import numpy as np
-from pandas.tools.plotting import scatter_matrix
-import matplotlib.pyplot as plt
-from sklearn import model_selection
-from sklearn.metrics import classification_report
-from sklearn.metrics import confusion_matrix
-from sklearn.metrics import accuracy_score
+
+#Task: Given attributes about the person, predict income is >50K and <50K
+
+#Read Dataset
+df = pd.read_csv('adult.csv')
+print(df.head(5))
+
+#check the frequency of  occurances of values
+print(df['income'].value_counts())
+
+#Remove spaces in a cell
+df['income'] = [x.strip().replace(' ', '') for x in df['income']]
+
+df['native_country'] = [x.strip().replace(' ','') for x in df['native_country']]
+
+#Encode salary <=50K as "0" and salary >50K as "1" 
+df['income'] = [0 if x == '<=50K' else 1 for x in df['income']]
+
+print(df['income'].value_counts())
+ 
+#Split data into X(independent vars) and Y(Dependent var)
+X = df.drop('income',1)
+Y = df['income']
+
+print(X.head(5))
+print(Y.head(5))
+
+#Label encoding and creating dummy features using get_dummies
+print(pd.get_dummies(X['education']).head(5))
+
+# Check unique values in all categorical variables
+for col_name in X.columns:
+    if X[col_name].dtypes == 'object':
+        unique_cat = len(X[col_name].unique())
+        print("Feature '{col_name}' has {unique_cat} unique categories".format(col_name=col_name, unique_cat=unique_cat))
+
+# Although, 'native_country' has a lot of unique categories, most categories only have a few observations
+print(X['native_country'].value_counts().sort_values(ascending=False).head(10))
+
+# In this case, bucket low frequecy categories as "Other"
+X['native_country'] = ['United-States' if x == 'United-States' else 'Other' for x in X['native_country']]
+
+print(X['native_country'].value_counts().sort_values(ascending=False))
+
+# Create a list of features to dummy
+todummy_list = ['workclass', 'education', 'marital_status', 'occupation', 'relationship', 'race', 'sex', 'native_country']
+
+# Function to dummy all the categorical variables used for modeling
+def dummy_df(df, todummy_list):
+    for x in todummy_list:
+        dummies = pd.get_dummies(df[x], prefix=x, dummy_na=False)
+        df = df.drop(x, 1)
+        df = pd.concat([df, dummies], axis=1)
+    return df
+
+X = dummy_df(X, todummy_list)
+print(X.head(5))
+
+# Check how much of data is missing?
+print(X.isnull().sum().sort_values(ascending=False).head())
+
+# Impute missing values using Imputer in sklearn.preprocessing
+from sklearn.preprocessing import Imputer
+
+imp = Imputer(missing_values='NaN', strategy='median', axis=0)
+imp.fit(X)
+X = pd.DataFrame(data=imp.transform(X) , columns=X.columns)
+
+# Now check again to see if you still have missing data
+print(X.isnull().sum().sort_values(ascending=False).head())
+
+
+# Impute missing values using Imputer in sklearn.preprocessing
+from sklearn.preprocessing import Imputer
+
+imp = Imputer(missing_values='NaN', strategy='median', axis=0)
+imp.fit(X)
+X = pd.DataFrame(data=imp.transform(X) , columns=X.columns)
+
+# Now check again to see if you still have missing data
+print(X.isnull().sum().sort_values(ascending=False).head())
+
+#Find the outliers of numeric variables using tukey method(below Q1 − 1.5IQR, or above Q3 + 1.5IQR)
+def find_outliers_tukey(x):
+    q1 = np.percentile(x, 25)
+    q3 = np.percentile(x, 75)
+    iqr = q3-q1 
+    floor = q1 - 1.5*iqr
+    ceiling = q3 + 1.5*iqr
+    outlier_indices = list(x.index[(x < floor)|(x > ceiling)])
+    outlier_values = list(x[outlier_indices])
+    return outlier_indices, outlier_values
+
+
+tukey_indices, tukey_values = find_outliers_tukey(X['age'])
+print(np.sort(tukey_values))
+
+from sklearn.preprocessing import scale
+from statsmodels.nonparametric.kde import KDEUnivariate
+#Find outliers using KDE. The another approach to find outliers using pdf
+def find_outliers_kde(x):
+    x_scaled = scale(list(map(float, x)))
+    kde = KDEUnivariate(x_scaled)
+    kde.fit(bw="scott", fft=True)
+    pred = kde.evaluate(x_scaled)
+    
+    n = sum(pred < 0.05)
+    outlier_ind = np.asarray(pred).argsort()[:n]
+    outlier_value = np.asarray(x)[outlier_ind]
+
+    return outlier_ind, outlier_value
+
+kde_indices, kde_values = find_outliers_kde(X['age'])
+print(np.sort(kde_values))
+
+from sklearn.cross_validation import train_test_split
+
+#Split the data into 70 train and 30 test
+X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.70, random_state=1)
+
+print(df.shape)
+print(X.shape)
+
+#Select top 20 best features from all the features
+import sklearn.feature_selection
+
+select = sklearn.feature_selection.SelectKBest(k=20)
+selected_features = select.fit(X_train, y_train)
+indices_selected = selected_features.get_support(indices=True)
+colnames_selected = [X.columns[i] for i in indices_selected]
+
+X_train_selected = X_train[colnames_selected]
+X_test_selected = X_test[colnames_selected]
+
+print(colnames_selected)
+
 from sklearn.linear_model import LogisticRegression
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
-from sklearn.naive_bayes import GaussianNB
-from sklearn.svm import SVC
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score
 
-from sklearn.preprocessing import normalize
-from scipy import stats
+#Apply the Logistic regression on train data. Find the accuracy on test data
+def find_model_perf(X_train, y_train, X_test, y_test):
+    model = LogisticRegression()
+    model.fit(X_train, y_train)
+    predictions = model.predict(X_test)
+    print(accuracy_score(y_test, predictions))
 
-names = ['id','ri','na','mg','al','si','k','ca','ba','fe','type_of_glass']
-dataset = pandas.read_csv('glassdata.csv',names=names)
-
-dataset = dataset.drop('id',axis = 1) # Do not use ID column
-#peek of 10 records
-
-print(dataset.head(10))
-
-print(dataset.isnull().sum().sort_values(ascending=False).head())
-
-#summary of dataset
-
-print(dataset.describe())
-
-#Dimension of dataset
-
-print(dataset.shape)
-
-#Class of target variable
-
-print(dataset.groupby("type_of_glass").size())
-
-# Split-out validation dataset
-dataset.iloc[:,4] = np.log(dataset.iloc[:,4])
-print(dataset.head())
-array = dataset.values
-X = array[:,0:9]
-Y = array[:,9]
-validation_size = 0.30
-seed = 7
-
-X_train, X_validation, Y_train, Y_validation = model_selection.train_test_split(X, Y, test_size=validation_size, random_state=seed)
-
-# Test options and evaluation metric
-seed = 7
-scoring = 'accuracy'
-
-
-'''Lets evaluate 6 different algorithms:
-    Logistic Regression (LR)
-    Linear Discriminant Analysis (LDA)
-    K-Nearest Neighbors (KNN).
-    Classification and Regression Trees (CART).
-    Gaussian Naive Bayes (NB).
-    Support Vector Machines (SVM).
-'''
-
-# Spot Check Algorithms
-models = []
-models.append(('LR', LogisticRegression()))
-models.append(('LDA', LinearDiscriminantAnalysis()))
-models.append(('KNN', KNeighborsClassifier()))
-models.append(('CART', DecisionTreeClassifier()))
-models.append(('RF', RandomForestClassifier()))
-models.append(('SVM', SVC()))
-# evaluate each model in turn
-results = []
-names = []
-for name, model in models:
-	kfold = model_selection.KFold(n_splits=10, random_state=seed)
-	cv_results = model_selection.cross_val_score(model, X_train, Y_train, cv=kfold, scoring=scoring)
-	results.append(cv_results)
-	names.append(name)
-	msg = "MSG : %s: %f (%f)" % (name, cv_results.mean(), cv_results.std())
-	print(msg)
-
-
-rfc = RandomForestClassifier(n_estimators = 150, max_depth=10)
-rfc.fit(X_train, Y_train)
-predictions = rfc.predict(X_validation)
-#print("predictions:",X_validation," Y_validation : ",Y_validation)
-print(accuracy_score(Y_validation, predictions))
-print(confusion_matrix(Y_validation, predictions))
-print(classification_report(Y_validation, predictions))
+find_model_perf(X_train, y_train, X_test, y_test)
