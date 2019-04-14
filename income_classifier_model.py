@@ -68,27 +68,6 @@ X = pd.DataFrame(data=imp.transform(X) , columns=X.columns)
 # Now check again to see if you still have missing data
 print(X.isnull().sum().sort_values(ascending=False).head())
 
-
-# Impute missing values using Imputer in sklearn.preprocessing
-from sklearn.preprocessing import Imputer
-
-imp = Imputer(missing_values='NaN', strategy='median', axis=0)
-imp.fit(X)
-X = pd.DataFrame(data=imp.transform(X) , columns=X.columns)
-
-# Now check again to see if you still have missing data
-print(X.isnull().sum().sort_values(ascending=False).head())
-
-# Impute missing values using Imputer in sklearn.preprocessing
-from sklearn.preprocessing import Imputer
-
-imp = Imputer(missing_values='NaN', strategy='median', axis=0)
-imp.fit(X)
-X = pd.DataFrame(data=imp.transform(X) , columns=X.columns)
-
-# Now check again to see if you still have missing data
-print(X.isnull().sum().sort_values(ascending=False).head())
-
 def find_outliers_tukey(x):
     q1 = np.percentile(x, 25)
     q3 = np.percentile(x, 75)
